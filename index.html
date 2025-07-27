@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TiptonTrackWatch</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font for stopwatch display */
+        @font-face {
+            font-family: 'Digital-7';
+            src: url('https://raw.githubusercontent.com/redq/Digital-7/master/digital-7.ttf') format('truetype');
+            /* Fallback or local font if this URL doesn't work reliably */
+            /* You might need to host this font yourself for production use */
+        }
+        .digital-font {
+            font-family: 'Digital-7', monospace;
+        }
+        /* Custom scrollbar for kid names list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Styles for sticky table header/column for better UX on wide tables */
+        /* Sticky Name Column (left side) */
+        .sticky-col-header-left {
+            position: sticky;
+            left: 0;
+            z-index: 10; /* Ensures it stays above scrolling content */
+            background-color: #f9fafb; /* Light gray background to hide content underneath */
+            border-right: 1px solid #e5e7eb; /* Visual separator */
+        }
+        .sticky-col-cell-left {
+            position: sticky;
+            left: 0;
+            z-index: 5; /* Lower than header, but above other cells */
+            background-color: #ffffff; /* White background for the cell */
+            border-right: 1px solid #e5e7eb; /* Visual separator */
+        }
+
+        /* Sticky Average Column (right side) */
+        .sticky-col-header-right {
+            position: sticky;
+            right: 0;
+            z-index: 9; /* Slightly lower than left sticky header */
+            background-color: #f9fafb;
+            border-left: 1px solid #e5e7eb; /* Visual separator */
+        }
+        .sticky-col-cell-right {
+            position: sticky;
+            right: 0;
+            z-index: 4; /* Slightly lower than left sticky cell */
+            background-color: #ffffff;
+            border-left: 1px solid #e5e7eb; /* Visual separator */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 font-sans">
+    <div class="bg-white p-8 rounded-xl shadow-lg flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-8 max-w-5xl w-full border border-gray-200">
+
+        <!-- Left Column: Name Management -->
+        <div class="flex-none w-full md:w-1/3 p-4 bg-gray-50 rounded-lg shadow-inner border border-gray-100 flex flex-col">
+            <h2 class="text-xl font-bold mb-4 text-center text-gray-800">Kids' Names</h2>
+            <div class="flex flex-col sm:flex-row items-center mb-4 space-y-2 sm:space-y-0 sm:space-x-2">
+                <input type="text" id="addNameInput" placeholder="Enter kid's name"
+                       class="flex-grow p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out">
+                <button id="addNameButton"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-150 ease-in-out w-full sm:w-auto">
+                    Add Name
+                </button>
+            </div>
+            <div id="kidButtonsContainer" class="flex-grow overflow-y-auto custom-scrollbar border border-gray-200 rounded-md p-2 bg-white">
+                <!-- Kid buttons will be added here -->
+                <p id="noKidsMessage" class="text-gray-500 text-sm text-center py-4">No kids added yet. Add a name above!</p>
+            </div>
+        </div>
+
+        <!-- Right Column: Stopwatch and Data Display -->
+        <div class="flex-grow p-4 bg-gray-50 rounded-lg shadow-inner border border-gray-100 flex flex-col">
+            <div class="mb-6 text-center">
+                <div id="stopwatchDisplay" class="digital-font text-6xl text-lime-500 bg-gray-900 px-6 py-4 rounded-lg shadow-inner border-2 border-lime-600 inline-block">
+                    00:00:00.00
+                </div>
+            </div>
+
+            <div class="flex justify-center space-x-4 mb-6">
+                <button id="startButton"
+                        class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md shadow-md transition duration-150 ease-in-out transform hover:scale-105">
+                    Start
+                </button>
+                <button id="stopButton" disabled
+                        class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-md shadow-md transition duration-150 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Stop
+                </button>
+                <button id="resetButton" disabled
+                        class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-6 rounded-md shadow-md transition duration-150 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Reset
+                </button>
+            </div>
+
+            <!-- Data Table Container: Added overflow-x-auto for horizontal scrolling -->
+            <div class="flex-grow overflow-x-auto border border-gray-200 rounded-md shadow-sm">
+                <table id="dataTable" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr id="tableHeaderRow">
+                            <!-- Headers will be generated dynamically here -->
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Data rows will be added here -->
+                        <tr id="noDataMessage">
+                            <td colspan="100" class="px-3 py-2 text-sm text-gray-500 text-center">
+                                Click kid names to record splits!
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p id="instructionsMessage" class="text-sm text-gray-500 mt-4 text-center">Right-click on a kid's row to delete them.</p>
+
+            <!-- Custom Alert/Message Box -->
+            <div id="customAlert" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center hidden">
+                <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                    <h3 id="alertTitle" class="text-lg font-bold mb-4"></h3>
+                    <p id="alertMessage" class="text-sm text-gray-700 mb-6"></p>
+                    <div class="flex justify-end space-x-3">
+                        <button id="alertConfirmBtn" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md hidden">Confirm</button>
+                        <button id="alertCancelBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded-md">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for stopwatch logic
+        let stopwatchInterval;
+        let startTime;
+        let running = false;
+        let elapsedTime = 0; // Stores total elapsed time in milliseconds (cumulative from stopwatch start)
+
+        // Data structure to store kid's split times
+        // { 'Kid1': [cumulative_time_split1_ms, cumulative_time_split2_ms, ...], 'Kid2': [...] }
+        const kidTimes = {};
+        const kidRowElements = {}; // Stores {kid_name: tbody_tr_element}
+
+        // DOM elements
+        const stopwatchDisplay = document.getElementById('stopwatchDisplay');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const resetButton = document.getElementById('resetButton');
+        const addNameInput = document.getElementById('addNameInput');
+        const addNameButton = document.getElementById('addNameButton');
+        const kidButtonsContainer = document.getElementById('kidButtonsContainer');
+        const dataTable = document.getElementById('dataTable');
+        const dataTableBody = document.getElementById('dataTableBody');
+        const noKidsMessage = document.getElementById('noKidsMessage');
+        const noDataMessage = document.getElementById('noDataMessage');
+        const instructionsMessage = document.getElementById('instructionsMessage');
+        const tableHeaderRow = document.getElementById('tableHeaderRow'); // Get the specific header row
+
+        // Custom alert elements
+        const customAlert = document.getElementById('customAlert');
+        const alertTitle = document.getElementById('alertTitle');
+        const alertMessage = document.getElementById('alertMessage');
+        const alertConfirmBtn = document.getElementById('alertConfirmBtn');
+        const alertCancelBtn = document.getElementById('alertCancelBtn');
+
+        // Function to show custom alert/confirm dialog
+        function showAlert(title, message, isConfirm = false) {
+            alertTitle.textContent = title;
+            alertMessage.textContent = message;
+            alertConfirmBtn.style.display = isConfirm ? 'inline-block' : 'none';
+            alertCancelBtn.textContent = isConfirm ? 'Cancel' : 'OK';
+            customAlert.classList.remove('hidden');
+
+            return new Promise(resolve => {
+                const confirmHandler = () => {
+                    customAlert.classList.add('hidden');
+                    alertConfirmBtn.removeEventListener('click', confirmHandler);
+                    alertCancelBtn.removeEventListener('click', cancelHandler);
+                    resolve(true);
+                };
+                const cancelHandler = () => {
+                    customAlert.classList.add('hidden');
+                    alertConfirmBtn.removeEventListener('click', confirmHandler);
+                    alertCancelBtn.removeEventListener('click', cancelHandler);
+                    resolve(false);
+                };
+
+                alertConfirmBtn.addEventListener('click', confirmHandler);
+                alertCancelBtn.addEventListener('click', cancelHandler);
+            });
+        }
+
+
+        // Function to format time from milliseconds to HH:MM:SS.ms
+        function formatTime(milliseconds) {
+            const date = new Date(milliseconds);
+            const hours = String(date.getUTCHours()).padStart(2, '0');
+            const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+            const ms = String(Math.floor(date.getUTCMilliseconds() / 10)).padStart(2, '0'); // Get first two digits of milliseconds
+            return `${hours}:${minutes}:${seconds}.${ms}`;
+        }
+
+        // Update the stopwatch display
+        function updateStopwatch() {
+            if (running) {
+                elapsedTime = Date.now() - startTime;
+                stopwatchDisplay.textContent = formatTime(elapsedTime);
+            }
+        }
+
+        // Start stopwatch
+        function startStopwatch() {
+            if (!running) {
+                startTime = Date.now() - elapsedTime; // Adjust startTime if resuming
+                running = true;
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                resetButton.disabled = false;
+                stopwatchInterval = setInterval(updateStopwatch, 10); // Update every 10ms for smooth display
+            }
+        }
+
+        // Stop stopwatch
+        function stopStopwatch() {
+            if (running) {
+                running = false;
+                clearInterval(stopwatchInterval);
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            }
+        }
+
+        // Reset stopwatch
+        async function resetStopwatch() {
+            const confirmed = await showAlert("Confirm Reset", "Are you sure you want to reset the stopwatch and clear all data?", true);
+            if (confirmed) {
+                stopStopwatch();
+                elapsedTime = 0;
+                stopwatchDisplay.textContent = "00:00:00.00";
+                startButton.disabled = false;
+                resetButton.disabled = true;
+
+                // Clear all kid data
+                for (const kidName in kidTimes) {
+                    delete kidTimes[kidName];
+                }
+                kidButtonsContainer.innerHTML = ''; // Clear kid buttons
+                // Ensure kidRowElements is fully reinitialized
+                for (const key in kidRowElements) {
+                    if (kidRowElements.hasOwnProperty(key)) {
+                        delete kidRowElements[key];
+                    }
+                }
+                updateDataTableColumns(); // Reset table columns and clear rows
+                noKidsMessage.classList.remove('hidden'); // Show no kids message
+                noDataMessage.classList.remove('hidden'); // Show no data message
+            }
+        }
+
+        // Add a kid's name
+        async function addKid() {
+            const name = addNameInput.value.trim();
+            if (name) {
+                if (kidTimes[name]) {
+                    await showAlert("Duplicate Name", `The name '${name}' already exists. Please choose a different name.`);
+                } else {
+                    kidTimes[name] = [];
+                    addNameInput.value = '';
+                    createKidButton(name);
+                    updateDataTableColumns(); // Update columns just in case the max splits changed
+                    addNameInput.focus(); // Keep focus on the input
+                    noKidsMessage.classList.add('hidden'); // Hide no kids message
+                }
+            } else {
+                await showAlert("Invalid Name", "Please enter a valid name.");
+            }
+        }
+
+        // Create a clickable button for a kid
+        function createKidButton(name) {
+            const button = document.createElement('button');
+            button.textContent = name;
+            button.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800', 'font-semibold', 'py-2', 'px-4', 'rounded-md', 'shadow-sm', 'transition', 'duration-150', 'ease-in-out', 'w-full', 'transform', 'hover:scale-105', 'text-left');
+            button.style.marginBottom = '8px'; // Add some spacing
+
+            // Event listener to record split time
+            button.addEventListener('click', () => recordSplit(name));
+            kidButtonsContainer.appendChild(button);
+        }
+
+        // Record a split time for a specific kid
+        async function recordSplit(kidName) {
+            if (!running) {
+                await showAlert("Stopwatch Not Running", "Please start the stopwatch before recording splits.");
+                return;
+            }
+            kidTimes[kidName].push(elapsedTime); // Store elapsed time in milliseconds
+            updateDataTableColumns(); // Re-evaluate columns in case a new max split count is reached
+            noDataMessage.classList.add('hidden'); // Hide no data message
+        }
+
+        // Update table columns based on maximum splits recorded
+        function updateDataTableColumns() {
+            let maxSplits = 0;
+            for (const name in kidTimes) {
+                if (kidTimes[name].length > maxSplits) {
+                    maxSplits = kidTimes[name].length;
+                }
+            }
+
+            // Clear all current headers
+            tableHeaderRow.innerHTML = ''; 
+            
+            // 1. Add Name header (sticky left)
+            let thName = document.createElement('th');
+            thName.classList.add('px-3', 'py-2', 'text-left', 'text-xs', 'font-medium', 'text-gray-500', 'uppercase', 'tracking-wider', 'whitespace-nowrap', 'sticky-col-header-left');
+            thName.textContent = 'Name';
+            tableHeaderRow.appendChild(thName);
+
+            // 2. Add 'Split X' headers dynamically
+            for (let i = 1; i <= maxSplits; i++) {
+                let thSplit = document.createElement('th');
+                thSplit.classList.add('px-3', 'py-2', 'text-center', 'text-xs', 'font-medium', 'text-gray-500', 'uppercase', 'tracking-wider', 'whitespace-nowrap');
+                thSplit.textContent = `Split ${i}`;
+                tableHeaderRow.appendChild(thSplit);
+            }
+
+            // 3. Add Average header (sticky right)
+            let thAverage = document.createElement('th');
+            thAverage.classList.add('px-3', 'py-2', 'text-center', 'text-xs', 'font-medium', 'text-gray-500', 'uppercase', 'tracking-wider', 'whitespace-nowrap', 'sticky-col-header-right');
+            thAverage.textContent = 'Average';
+            // Only show average if there are at least 2 splits for any kid
+            if (maxSplits >= 2) {
+                thAverage.classList.remove('hidden');
+            } else {
+                thAverage.classList.add('hidden');
+            }
+            tableHeaderRow.appendChild(thAverage);
+
+            refreshDataTableRows(maxSplits); // Refresh rows to match new column structure
+        }
+
+        // Refresh all table rows
+        function refreshDataTableRows(maxSplits) {
+            // Clear all rows first
+            dataTableBody.innerHTML = '';
+
+            // Re-add rows for all kids
+            for (const kidName in kidTimes) {
+                const times = kidTimes[kidName];
+                let row = kidRowElements[kidName];
+                if (!row) {
+                    row = document.createElement('tr');
+                    kidRowElements[kidName] = row;
+                    // Add right-click listener for context menu
+                    row.addEventListener('contextmenu', (e) => {
+                        e.preventDefault(); // Prevent default browser context menu
+                        showContextMenu(e, kidName);
+                    });
+                }
+                dataTableBody.appendChild(row); // Append existing or new row
+
+                // Populate cells
+                row.innerHTML = ''; // Clear existing cells
+
+                // Name cell (sticky left)
+                let tdName = document.createElement('td');
+                tdName.classList.add('px-3', 'py-2', 'whitespace-nowrap', 'text-sm', 'font-medium', 'text-gray-900', 'sticky-col-cell-left');
+                tdName.textContent = kidName;
+                row.appendChild(tdName);
+
+                // Individual split durations for average calculation
+                const individualSplitDurations = [];
+                for (let i = 0; i < times.length; i++) {
+                    const currentSplitTime = times[i];
+                    const previousSplitTime = (i > 0) ? times[i-1] : 0;
+                    individualSplitDurations.push(currentSplitTime - previousSplitTime);
+                }
+
+                for (let i = 0; i < maxSplits; i++) {
+                    let tdSplit = document.createElement('td');
+                    tdSplit.classList.add('px-3', 'py-2', 'whitespace-nowrap', 'text-sm', 'text-gray-700', 'text-center');
+                    if (times[i] !== undefined) {
+                        tdSplit.textContent = formatTime(times[i]); // Display cumulative time for split column
+                    } else {
+                        tdSplit.textContent = ''; // Empty cell if no split for this index
+                    }
+                    row.appendChild(tdSplit);
+                }
+
+                // Average cell (sticky right)
+                let tdAvg = document.createElement('td');
+                tdAvg.classList.add('px-3', 'py-2', 'whitespace-nowrap', 'text-sm', 'text-blue-600', 'font-bold', 'text-center', 'sticky-col-cell-right');
+                
+                if (individualSplitDurations.length >= 2) { // Average only after the second split is recorded
+                    const sum = individualSplitDurations.reduce((a, b) => a + b, 0);
+                    const average = sum / individualSplitDurations.length;
+                    tdAvg.textContent = formatTime(average);
+                } else {
+                    tdAvg.textContent = '';
+                }
+                row.appendChild(tdAvg);
+            }
+
+            if (Object.keys(kidTimes).length === 0) {
+                 noDataMessage.classList.remove('hidden');
+            } else {
+                noDataMessage.classList.add('hidden');
+            }
+        }
+
+        // Context menu for deleting a kid
+        let contextMenu = document.createElement('div');
+        contextMenu.classList.add('absolute', 'bg-white', 'rounded-md', 'shadow-lg', 'py-1', 'z-20', 'hidden', 'border', 'border-gray-200'); /* Increased z-index */
+        contextMenu.innerHTML = `
+            <button id="deleteKidMenuItem" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Delete Kid</button>
+        `;
+        document.body.appendChild(contextMenu);
+
+        let activeKidForContextMenu = null;
+
+        function showContextMenu(event, kidName) {
+            event.preventDefault(); // Prevent default browser context menu
+            activeKidForContextMenu = kidName;
+            // Position the context menu relative to the click
+            contextMenu.style.left = `${event.pageX}px`;
+            contextMenu.style.top = `${event.pageY}px`;
+            contextMenu.classList.remove('hidden');
+        }
+
+        // Hide context menu when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!contextMenu.contains(event.target)) {
+                contextMenu.classList.add('hidden');
+                activeKidForContextMenu = null;
+            }
+        });
+
+        document.getElementById('deleteKidMenuItem').addEventListener('click', async () => {
+            if (activeKidForContextMenu) {
+                const confirmed = await showAlert("Confirm Deletion", `Are you sure you want to delete '${activeKidForContextMenu}' and all their times?`, true);
+                if (confirmed) {
+                    deleteKid(activeKidForContextMenu);
+                }
+            }
+            contextMenu.classList.add('hidden');
+            activeKidForContextMenu = null;
+        });
+
+        // Delete a kid's data and UI elements
+        function deleteKid(kidName) {
+            delete kidTimes[kidName];
+
+            // Remove button
+            const buttons = kidButtonsContainer.querySelectorAll('button');
+            buttons.forEach(button => {
+                if (button.textContent === kidName) {
+                    button.remove();
+                }
+            });
+
+            // Remove table row
+            if (kidRowElements[kidName]) {
+                kidRowElements[kidName].remove();
+                delete kidRowElements[kidName];
+            }
+
+            updateDataTableColumns(); // Re-evaluate columns in case the max splits changed
+            if (Object.keys(kidTimes).length === 0) {
+                noKidsMessage.classList.remove('hidden'); // Show no kids message if list is empty
+                noDataMessage.classList.remove('hidden'); // Show no data message if table is empty
+            }
+        }
+
+
+        // Event Listeners
+        startButton.addEventListener('click', startStopwatch);
+        stopButton.addEventListener('click', stopStopwatch);
+        resetButton.addEventListener('click', resetStopwatch);
+        addNameButton.addEventListener('click', addKid);
+        addNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addKid();
+            }
+        });
+
+        // Initial setup
+        updateDataTableColumns(); // Initialize table headers
+    </script>
+</body>
+</html>
